@@ -265,167 +265,130 @@ function mkCoin(){ const m=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.07
 const MODS = { cat:null, e1:null, e2:null };
 
 // ═══════════════════════════════════════════════════════
-//  SELF-CONTAINED GLB PARSER (no external dependencies)
-//  Handles static GLB files: meshes, materials, textures
+//  SELF-CONTAINED GLB PARSER — no external dependencies
 // ═══════════════════════════════════════════════════════
 async function parseGLB(url) {
-  // 1. Fetch raw bytes
   let buf;
   try {
-    const r = await fetch(url);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 4000); // 4s max per file
+    const r = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
     if (!r.ok) return null;
     buf = await r.arrayBuffer();
-  } catch(e) { return null; }
+  } catch(e) { return null; }  // fetch blocked, timeout, or 404 → null
 
-  const dv = new DataView(buf);
-  // GLB magic: 0x46546C67 = "glTF"
-  if (dv.getUint32(0, true) !== 0x46546C67) return null;
+  try {
+    const dv = new DataView(buf);
+    if (dv.getUint32(0, true) !== 0x46546C67) return null; // not glTF magic
 
-  // Read chunks
-  let offset = 12;
-  let jsonChunk = null, binChunk = null;
-  while (offset < buf.byteLength) {
-    const len  = dv.getUint32(offset,     true);
-    const type = dv.getUint32(offset + 4, true);
-    const data = buf.slice(offset + 8, offset + 8 + len);
-    if (type === 0x4E4F534A) jsonChunk = data; // JSON
-    if (type === 0x004E4942) binChunk  = data; // BIN
-    offset += 8 + len;
-  }
-  if (!jsonChunk) return null;
+    let offset = 12, jsonChunk = null, binChunk = null;
+    while (offset < buf.byteLength) {
+      const len  = dv.getUint32(offset,     true);
+      const type = dv.getUint32(offset + 4, true);
+      const data = buf.slice(offset + 8, offset + 8 + len);
+      if (type === 0x4E4F534A) jsonChunk = data;
+      if (type === 0x004E4942) binChunk  = data;
+      offset += 8 + len;
+    }
+    if (!jsonChunk) return null;
 
-  const gltf = JSON.parse(new TextDecoder().decode(jsonChunk));
-  const bin  = binChunk || new ArrayBuffer(0);
+    const gltf = JSON.parse(new TextDecoder().decode(jsonChunk));
+    const bin  = binChunk || new ArrayBuffer(0);
 
-  // Helper: get buffer view bytes
-  function getBV(idx) {
-    const bv = gltf.bufferViews[idx];
-    return new Uint8Array(bin, bv.byteOffset||0, bv.byteLength);
-  }
+    function getBV(idx) {
+      const bv = gltf.bufferViews[idx];
+      return new Uint8Array(bin, bv.byteOffset||0, bv.byteLength);
+    }
 
-  // Helper: get typed accessor data
-  function getAcc(idx) {
-    const acc = gltf.accessors[idx];
-    const bv  = gltf.bufferViews[acc.bufferView];
-    const off = (bv.byteOffset||0) + (acc.byteOffset||0);
-    const CT  = {5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
-    const SZ  = {SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
-    const Arr = CT[acc.componentType];
-    const cnt = acc.count * SZ[acc.type];
-    return new Arr(bin, off, cnt);
-  }
+    function getAcc(idx) {
+      const acc = gltf.accessors[idx];
+      const bv  = gltf.bufferViews[acc.bufferView];
+      const off = (bv.byteOffset||0) + (acc.byteOffset||0);
+      const CT  = {5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
+      const SZ  = {SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
+      return new CT[acc.componentType](bin, off, acc.count * SZ[acc.type]);
+    }
 
-  // Load textures
-  const textures = [];
-  if (gltf.images) {
-    for (const img of gltf.images) {
+    // Textures
+    const textures = [];
+    for (const img of (gltf.images || [])) {
       try {
-        let bytes;
-        if (img.bufferView !== undefined) {
-          bytes = getBV(img.bufferView);
-        } else { textures.push(null); continue; }
-        const blob = new Blob([bytes], { type: img.mimeType || 'image/png' });
-        const burl = URL.createObjectURL(blob);
-        const tex  = await new Promise((res, rej) => {
-          const t = new THREE.TextureLoader().load(burl, res, null, rej);
-          t.flipY = false;
+        const bytes = getBV(img.bufferView);
+        const blob  = new Blob([bytes], { type: img.mimeType || 'image/png' });
+        const burl  = URL.createObjectURL(blob);
+        const tex   = await new Promise(res => {
+          new THREE.TextureLoader().load(burl, t => { t.flipY=false; res(t); }, null, () => res(null));
         });
         textures.push(tex);
       } catch(e) { textures.push(null); }
     }
-  }
 
-  // Build materials
-  const materials = [];
-  for (const mat of (gltf.materials || [])) {
-    const pbr = mat.pbrMetallicRoughness || {};
-    const col = pbr.baseColorFactor || [1,1,1,1];
-    let map = null;
-    if (pbr.baseColorTexture) map = textures[gltf.textures[pbr.baseColorTexture.index].source] || null;
-    const m = new THREE.MeshLambertMaterial({
-      color: new THREE.Color(col[0], col[1], col[2]),
-      map,
-      transparent: col[3] < 1,
-      opacity: col[3],
-      side: mat.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
-    });
-    materials.push(m);
-  }
+    // Materials
+    const materials = [];
+    for (const mat of (gltf.materials || [])) {
+      const pbr = mat.pbrMetallicRoughness || {};
+      const col = pbr.baseColorFactor || [1,1,1,1];
+      let map = null;
+      if (pbr.baseColorTexture !== undefined) {
+        const ti = gltf.textures[pbr.baseColorTexture.index];
+        map = ti ? textures[ti.source] || null : null;
+      }
+      materials.push(new THREE.MeshLambertMaterial({
+        color: new THREE.Color(col[0], col[1], col[2]),
+        map, transparent: col[3] < 1, opacity: col[3],
+        side: mat.doubleSided ? THREE.DoubleSide : THREE.FrontSide,
+      }));
+    }
 
-  // Build meshes
-  function buildNode(nodeIdx, parent) {
-    const node = gltf.nodes[nodeIdx];
-    const g = new THREE.Group();
-    g.name = node.name || '';
-
-    if (node.matrix) {
-      g.matrix.fromArray(node.matrix);
-      g.matrix.decompose(g.position, g.quaternion, g.scale);
-    } else {
+    // Nodes
+    function buildNode(ni, parent) {
+      const node = gltf.nodes[ni];
+      const g = new THREE.Group();
+      if (node.matrix)      { g.matrix.fromArray(node.matrix); g.matrix.decompose(g.position, g.quaternion, g.scale); }
       if (node.translation) g.position.fromArray(node.translation);
       if (node.rotation)    g.quaternion.fromArray(node.rotation);
       if (node.scale)       g.scale.fromArray(node.scale);
-    }
 
-    if (node.mesh !== undefined) {
-      const meshDef = gltf.meshes[node.mesh];
-      for (const prim of meshDef.primitives) {
-        const geo = new THREE.BufferGeometry();
-
-        // Position
-        if (prim.attributes.POSITION !== undefined) {
-          const pos = getAcc(prim.attributes.POSITION);
-          geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+      if (node.mesh !== undefined) {
+        for (const prim of gltf.meshes[node.mesh].primitives) {
+          const geo = new THREE.BufferGeometry();
+          if (prim.attributes.POSITION  !== undefined) geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(getAcc(prim.attributes.POSITION)), 3));
+          if (prim.attributes.NORMAL    !== undefined) geo.setAttribute('normal',   new THREE.BufferAttribute(new Float32Array(getAcc(prim.attributes.NORMAL)),   3));
+          else geo.computeVertexNormals();
+          if (prim.attributes.TEXCOORD_0 !== undefined) geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(getAcc(prim.attributes.TEXCOORD_0)), 2));
+          if (prim.indices !== undefined) {
+            const id = getAcc(prim.indices);
+            geo.setIndex(new THREE.BufferAttribute(id instanceof Uint32Array ? new Uint32Array(id) : new Uint16Array(id), 1));
+          }
+          const mat = (prim.material !== undefined && materials[prim.material]) ? materials[prim.material] : new THREE.MeshLambertMaterial({color:0x88aaff});
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.castShadow = true;
+          g.add(mesh);
         }
-        // Normal
-        if (prim.attributes.NORMAL !== undefined) {
-          const nor = getAcc(prim.attributes.NORMAL);
-          geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nor), 3));
-        } else { geo.computeVertexNormals(); }
-        // UV
-        if (prim.attributes.TEXCOORD_0 !== undefined) {
-          const uv = getAcc(prim.attributes.TEXCOORD_0);
-          geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
-        }
-        // Indices
-        if (prim.indices !== undefined) {
-          const idx = getAcc(prim.indices);
-          geo.setIndex(new THREE.BufferAttribute(
-            idx instanceof Uint32Array ? new Uint32Array(idx) : new Uint16Array(idx), 1
-          ));
-        }
-
-        const mat = (prim.material !== undefined && materials[prim.material])
-          ? materials[prim.material]
-          : new THREE.MeshLambertMaterial({ color: 0x88aaff });
-
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.castShadow = true;
-        g.add(mesh);
       }
+      parent.add(g);
+      for (const ci of (node.children || [])) buildNode(ci, g);
     }
 
-    parent.add(g);
-    for (const child of (node.children || [])) buildNode(child, g);
-  }
+    const root  = new THREE.Group();
+    const sc0   = gltf.scenes ? gltf.scenes[gltf.scene||0] : null;
+    const roots = sc0 ? sc0.nodes : (gltf.nodes||[]).map((_,i)=>i);
+    for (const ni of roots) buildNode(ni, root);
 
-  const root = new THREE.Group();
-  const scene0 = gltf.scenes ? gltf.scenes[gltf.scene || 0] : null;
-  const rootNodes = scene0 ? scene0.nodes : (gltf.nodes ? gltf.nodes.map((_,i)=>i) : []);
-  for (const ni of rootNodes) buildNode(ni, root);
+    // Scale + center
+    const box = new THREE.Box3().setFromObject(root);
+    const sz  = box.getSize(new THREE.Vector3());
+    const sc  = 1.2 / Math.max(sz.x, sz.y, sz.z, 0.01);
+    root.scale.setScalar(sc);
+    root.updateMatrixWorld(true);
+    const box2 = new THREE.Box3().setFromObject(root);
+    root.position.x -= (box2.min.x + box2.max.x) / 2;
+    root.position.z -= (box2.min.z + box2.max.z) / 2;
+    root.position.y -= box2.min.y;
 
-  // Auto-scale to 1.2 units, feet at origin
-  const box = new THREE.Box3().setFromObject(root);
-  const sz  = box.getSize(new THREE.Vector3());
-  const sc  = 1.2 / Math.max(sz.x, sz.y, sz.z, 0.01);
-  root.scale.setScalar(sc);
-  root.updateMatrixWorld(true);
-  const box2 = new THREE.Box3().setFromObject(root);
-  root.position.x -= (box2.min.x + box2.max.x) / 2;
-  root.position.z -= (box2.min.z + box2.max.z) / 2;
-  root.position.y -= box2.min.y;
-
-  return root;
+    return root;
+  } catch(e) { console.warn('GLB parse error:', url, e); return null; }
 }
 
 function cloneMod(src) {
@@ -435,13 +398,14 @@ function cloneMod(src) {
 }
 
 async function tryMods() {
-  const [a, b, c] = await Promise.all([
-    parseGLB('cat.glb'),
-    parseGLB('enemy1.glb'),
-    parseGLB('enemy2.glb'),
+  // Race all 3 against a single 6s global timeout
+  const load = url => Promise.race([
+    parseGLB(url),
+    new Promise(r => setTimeout(() => r(null), 6000))
   ]);
+  const [a, b, c] = await Promise.all([load('cat.glb'), load('enemy1.glb'), load('enemy2.glb')]);
   MODS.cat = a; MODS.e1 = b; MODS.e2 = c;
-  console.log('GLB parsed — cat:', !!a, 'e1:', !!b, 'e2:', !!c);
+  console.log('GLB — cat:', !!a, 'e1:', !!b, 'e2:', !!c);
 }
 
 // ═══════════════════════════════════════════
