@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🐱 Neko Jump</title>
+<title>🐱 3D Cat Explorer</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 :root { --ac:#ff6ef7; --gold:#ffe066; --grn:#4dff91; --red:#ff4d6d; --ui:#0a0019ee; }
-body { background:#1a0533; font-family:'Press Start 2P',monospace; overflow:hidden; width:100vw; height:100vh; }
+body { background:#5ba8f5; font-family:'Press Start 2P',monospace; overflow:hidden; width:100vw; height:100vh; }
 
 #hud {
   position:fixed; top:0; left:0; right:0; z-index:100;
@@ -87,7 +87,7 @@ body { background:#1a0533; font-family:'Press Start 2P',monospace; overflow:hidd
 <!-- TITLE -->
 <div class="scr" id="sTitle">
   <div class="big">🐱</div>
-  <h1>NEKO JUMP</h1>
+  <h1>3D CAT EXPLORER</h1>
   <p>Un gato místico debe cruzar 10 mundos llenos de peligros. ¡Salta, gira y llega a la bandera!</p>
   <div class="minfo">Pon <b>cat.glb</b>, <b>enemy1.glb</b> y <b>enemy2.glb</b> en la misma carpeta.<br>Si no existen, se usan sprites emoji automáticamente.</div>
   <button class="btn" id="btnPlay">▶ JUGAR</button>
@@ -141,61 +141,61 @@ function gnd(total, ...gaps) {
 }
 
 const LEVELS = [
-  { name:"Los Tejados",     world:1,  emo:"🐱", bg:[.05,.02,.15], gc:0x5c3d1e, ac:0xff6ef7, time:300, width:42,
+  { name:"Los Tejados",     world:1,  emo:"🐱", bg:[.42,.72,.98], gc:0x7a4f2a, ac:0xff6ef7, time:300, width:42,
     ground:gnd(41,       [8,10],[19,21],[31,33]),
     floats:[[4,3,3],[11,3,2],[15,4,3],[22,3,3],[27,4,2],[35,3,3]],
     coins: [[4,2],[7,2],[11,2],[15,3],[22,2],[27,3],[35,2]],
     enemies:[[5,'w'],[9,'w'],[13,'w'],[17,'f'],[23,'w'],[28,'f'],[36,'w']], flagX:40 },
 
-  { name:"Las Cavernas",    world:2,  emo:"😼", bg:[.02,.05,.1],  gc:0x2a4a2a, ac:0x4dff91, time:280, width:45,
+  { name:"Las Cavernas",    world:2,  emo:"😼", bg:[.55,.40,.70], gc:0x3a6a3a, ac:0x4dff91, time:280, width:45,
     ground:gnd(44,       [4,6],[13,15],[23,25],[34,36]),
     floats:[[4,3,2],[9,3,3],[13,3,2],[17,4,3],[23,3,2],[28,4,3],[34,3,2],[39,3,3]],
     coins: [[4,2],[9,2],[13,2],[17,3],[23,2],[28,3],[34,2],[39,2]],
     enemies:[[6,'w'],[10,'f'],[15,'w'],[19,'f'],[24,'w'],[29,'f'],[37,'w'],[41,'f']], flagX:43 },
 
-  { name:"El Desierto",     world:3,  emo:"😸", bg:[.15,.08,.02], gc:0xc8962d, ac:0xffe066, time:260, width:48,
+  { name:"El Desierto",     world:3,  emo:"😸", bg:[.98,.88,.55], gc:0xd4a030, ac:0xff8800, time:260, width:48,
     ground:gnd(47,       [5,7],[14,16],[24,26],[35,37]),
     floats:[[5,3,2],[9,4,3],[14,3,2],[18,4,2],[24,3,3],[29,4,2],[35,3,2],[40,4,3]],
     coins: [[5,2],[9,3],[14,2],[18,3],[24,2],[29,3],[35,2],[40,3]],
     enemies:[[3,'w'],[8,'f'],[12,'w'],[16,'f'],[22,'w'],[27,'f'],[33,'w'],[38,'f'],[42,'w']], flagX:46 },
 
-  { name:"El Volcán",       world:4,  emo:"🙀", bg:[.15,.02,.02], gc:0x8b1a0a, ac:0xff4d6d, time:240, width:50,
+  { name:"El Volcán",       world:4,  emo:"🙀", bg:[.98,.65,.35], gc:0xaa2200, ac:0xff4d6d, time:240, width:50,
     ground:gnd(49,       [3,5],[11,13],[21,23],[30,32],[40,42]),
     floats:[[3,3,2],[7,3,3],[13,4,2],[17,3,3],[23,3,2],[27,4,3],[32,3,2],[36,4,2],[42,3,3]],
     coins: [[3,2],[7,2],[13,3],[17,2],[23,2],[27,3],[32,2],[36,3],[42,2]],
     enemies:[[4,'f'],[7,'w'],[12,'f'],[16,'w'],[20,'f'],[24,'w'],[29,'f'],[34,'w'],[38,'f'],[44,'w']], flagX:48 },
 
-  { name:"La Selva",        world:5,  emo:"😺", bg:[.02,.08,.02], gc:0x1a4d1a, ac:0x66ff66, time:280, width:52,
+  { name:"La Selva",        world:5,  emo:"😺", bg:[.40,.82,.45], gc:0x1a7a1a, ac:0x00cc44, time:280, width:52,
     ground:gnd(51,       [6,8],[15,17],[24,26],[34,36],[43,45]),
     floats:[[3,2,3],[6,3,2],[11,3,3],[15,2,2],[20,3,3],[24,2,2],[29,3,3],[34,2,2],[39,3,3],[43,2,2]],
     coins: [[3,1],[6,2],[11,2],[15,1],[20,2],[24,1],[29,2],[34,1],[39,2],[43,1]],
     enemies:[[2,'w'],[5,'f'],[9,'w'],[13,'f'],[18,'w'],[22,'f'],[27,'w'],[31,'f'],[37,'w'],[41,'f'],[46,'w']], flagX:50 },
 
-  { name:"El Hielo",        world:6,  emo:"😸", bg:[.05,.1,.18],  gc:0x5599cc, ac:0xaaeeff, time:250, width:55,
+  { name:"El Hielo",        world:6,  emo:"😸", bg:[.78,.92,.98], gc:0x4488cc, ac:0x00ccff, time:250, width:55,
     ground:gnd(54,       [4,6],[11,13],[19,21],[27,29],[35,37],[43,45]),
     floats:[[4,3,2],[8,4,3],[13,3,2],[17,4,2],[21,3,3],[27,4,2],[31,3,3],[37,4,2],[41,3,3],[45,4,2]],
     coins: [[4,2],[8,3],[13,2],[17,3],[21,2],[27,3],[31,2],[37,3],[41,2],[45,3]],
     enemies:[[3,'w'],[7,'f'],[11,'w'],[15,'f'],[20,'w'],[24,'f'],[28,'w'],[32,'f'],[38,'w'],[42,'f'],[46,'w']], flagX:53 },
 
-  { name:"Las Nubes",       world:7,  emo:"😼", bg:[.08,.1,.2],   gc:0xddeeff, ac:0xffccff, time:260, width:55,
+  { name:"Las Nubes",       world:7,  emo:"😼", bg:[.85,.92,.99], gc:0x8899cc, ac:0xff99ee, time:260, width:55,
     ground:[],
     floats:[[1,4,3],[5,3,2],[9,4,3],[13,3,2],[17,4,3],[21,3,2],[25,4,3],[29,3,2],[33,4,3],[37,3,2],[41,4,3],[45,3,3],[49,4,2]],
     coins: [[1,3],[5,2],[9,3],[13,2],[17,3],[21,2],[25,3],[29,2],[33,3],[37,2],[41,3],[45,2]],
     enemies:[[3,'f'],[7,'f'],[11,'f'],[15,'f'],[19,'w'],[23,'f'],[27,'f'],[31,'w'],[35,'f'],[39,'f'],[43,'f'],[47,'f']], flagX:52 },
 
-  { name:"La Fábrica",      world:8,  emo:"🐾", bg:[.05,.05,.05], gc:0x444444, ac:0xff9900, time:240, width:56,
+  { name:"La Fábrica",      world:8,  emo:"🐾", bg:[.75,.75,.80], gc:0x555566, ac:0xff9900, time:240, width:56,
     ground:gnd(55,       [4,6],[12,14],[21,23],[30,32],[39,41],[48,50]),
     floats:[[4,3,3],[8,4,2],[13,3,3],[17,4,2],[22,3,3],[26,4,2],[31,3,3],[35,4,2],[40,3,3],[44,4,2]],
     coins: [[4,2],[8,3],[13,2],[17,3],[22,2],[26,3],[31,2],[35,3],[40,2],[44,3]],
     enemies:[[3,'w'],[6,'f'],[10,'w'],[14,'f'],[18,'w'],[22,'f'],[27,'w'],[31,'f'],[36,'w'],[40,'f'],[45,'w'],[49,'f']], flagX:54 },
 
-  { name:"La Ciudad",       world:9,  emo:"🐱", bg:[.03,.03,.1],  gc:0x334466, ac:0x66aaff, time:250, width:58,
+  { name:"La Ciudad",       world:9,  emo:"🐱", bg:[.60,.75,.95], gc:0x445577, ac:0x66aaff, time:250, width:58,
     ground:gnd(57,       [5,7],[13,15],[22,24],[31,33],[40,42],[50,52]),
     floats:[[5,3,3],[9,4,2],[14,3,3],[18,4,2],[23,3,3],[27,4,2],[32,3,3],[36,4,2],[41,3,3],[45,4,2],[51,3,2]],
     coins: [[5,2],[9,3],[14,2],[18,3],[23,2],[27,3],[32,2],[36,3],[41,2],[45,3],[51,2]],
     enemies:[[3,'w'],[7,'f'],[11,'w'],[15,'f'],[20,'w'],[24,'f'],[29,'w'],[33,'f'],[38,'w'],[42,'f'],[47,'w'],[52,'f']], flagX:56 },
 
-  { name:"El Castillo Final",world:10, emo:"😺", bg:[.1,.0,.05],  gc:0x1a001a, ac:0xff00aa, time:220, width:61,
+  { name:"El Castillo Final",world:10, emo:"😺", bg:[.92,.80,.95], gc:0x550044, ac:0xff00aa, time:220, width:61,
     ground:gnd(60,       [3,5],[9,11],[16,18],[23,25],[31,33],[38,40],[45,47],[53,55]),
     floats:[[3,3,2],[6,4,3],[9,3,2],[12,4,3],[16,3,2],[19,4,3],[23,3,2],[26,4,3],[31,3,2],[34,4,3],[38,3,2],[41,4,3],[45,3,2],[48,4,3],[53,3,2]],
     coins: [[3,2],[6,3],[9,2],[12,3],[16,2],[19,3],[23,2],[26,3],[31,2],[34,3],[38,2],[41,3],[45,2],[48,3],[53,2]],
@@ -212,7 +212,7 @@ ren.shadowMap.type = THREE.PCFSoftShadowMap;
 ren.setPixelRatio(Math.min(devicePixelRatio,2));
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x1a0533, 20, 80);
+scene.fog = new THREE.Fog(0x6ab5fa, 25, 90);
 
 const cam = new THREE.OrthographicCamera(-1,1,1,-1,.1,200);
 cam.position.set(0,3,20); cam.lookAt(0,3,0);
@@ -263,17 +263,57 @@ function mkCoin(){ const m=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.07
 // GLB LOADING
 // ═══════════════════════════════════════════
 const MODS={cat:null,e1:null,e2:null};
-let gltfReady=false;
-const gltfScript=document.createElement('script');
-gltfScript.src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
-gltfScript.onload=()=>{ gltfReady=true; };
-document.head.appendChild(gltfScript);
 
-function loadGLB(url){ return new Promise(res=>{ if(!gltfReady||!THREE.GLTFLoader){res(null);return;} try{ new THREE.GLTFLoader().load(url,g=>{ const m=g.scene; const b=new THREE.Box3().setFromObject(m); const sz=b.getSize(new THREE.Vector3()); const sc=1.2/Math.max(sz.x,sz.y,sz.z); m.scale.setScalar(sc); b.getCenter(new THREE.Vector3()).multiplyScalar(sc); m.traverse(c=>{if(c.isMesh)c.castShadow=true;}); res(m); },null,()=>res(null)); }catch(e){res(null);} }); }
+// Load GLTFLoader script and return a promise that resolves when ready
+const gltfLoaderReady = new Promise(resolve => {
+  // Check if already loaded (e.g. cached)
+  if (typeof THREE.GLTFLoader !== 'undefined') { resolve(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+  s.onload  = () => resolve();
+  s.onerror = () => resolve(); // resolve anyway, loadGLB will handle missing loader
+  document.head.appendChild(s);
+});
 
-async function tryMods(){
-  const [a,b,c]=await Promise.all([loadGLB('cat.glb'),loadGLB('enemy1.glb'),loadGLB('enemy2.glb')]);
-  MODS.cat=a; MODS.e1=b; MODS.e2=c;
+// Load a single GLB file — resolves with a Three.js Group or null on any failure
+function loadGLB(url) {
+  return gltfLoaderReady.then(() => new Promise(resolve => {
+    if (typeof THREE.GLTFLoader === 'undefined') { resolve(null); return; }
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      url,
+      gltf => {
+        const m = gltf.scene;
+        // Auto-scale so longest axis = 1.2 world units
+        const box = new THREE.Box3().setFromObject(m);
+        const size = box.getSize(new THREE.Vector3());
+        const sc = 1.2 / Math.max(size.x, size.y, size.z, 0.001);
+        m.scale.setScalar(sc);
+        // Re-center so pivot is at feet
+        const box2 = new THREE.Box3().setFromObject(m);
+        const ctr = box2.getCenter(new THREE.Vector3());
+        m.position.x -= ctr.x;
+        m.position.z -= ctr.z;
+        m.position.y -= box2.min.y; // feet on origin
+        m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+        resolve(m);
+      },
+      null, // progress callback
+      err => { console.warn('GLB load failed:', url, err); resolve(null); }
+    );
+  }));
+}
+
+async function tryMods() {
+  const [a, b, c] = await Promise.all([
+    loadGLB('cat.glb'),
+    loadGLB('enemy1.glb'),
+    loadGLB('enemy2.glb'),
+  ]);
+  MODS.cat = a;
+  MODS.e1  = b;
+  MODS.e2  = c;
+  console.log('Models loaded — cat:', !!a, 'enemy1:', !!b, 'enemy2:', !!c);
 }
 
 function cloneMod(src){ const c=src.clone(); c.traverse(n=>{if(n.isMesh)n.castShadow=true;}); return c; }
@@ -308,6 +348,7 @@ function buildLv(idx){
   const d=LEVELS[idx];
   scene.background=new THREE.Color(...d.bg);
   scene.fog.color.setRGB(...d.bg);
+  scene.fog.near = 25; scene.fog.far = 90;
 
   plats=[]; floats3d=[]; enemies=[]; coins3d=[];
 
@@ -538,19 +579,16 @@ function resetAll(){ GS.level=0;GS.lives=3;GS.score=0;GS.coins=0; dying=false;co
 // ═══════════════════════════════════════════
 // BUTTON WIRING
 // ═══════════════════════════════════════════
-document.getElementById('btnPlay').addEventListener('click', function() {
+document.getElementById('btnPlay').addEventListener('click', async function() {
   const btn = this;
   btn.disabled = true;
   btn.textContent = '⏳ CARGANDO...';
-  // Give GLTFLoader script time to load, then try models
-  setTimeout(function() {
-    tryMods().then(function() {
-      resetAll();
-      showLvScreen(0);
-      btn.disabled = false;
-      btn.textContent = '▶ JUGAR';
-    });
-  }, 800);
+  // Wait for GLTFLoader script + model loading (falls back gracefully if files missing)
+  await tryMods();
+  resetAll();
+  showLvScreen(0);
+  btn.disabled = false;
+  btn.textContent = '▶ JUGAR';
 });
 
 document.getElementById('btnResume').addEventListener('click', function() {
@@ -579,7 +617,7 @@ function loop(ts){
   update(dt); tickParts(dt); ren.render(scene,cam);
 }
 
-scene.background=new THREE.Color(.05,.02,.15);
+scene.background=new THREE.Color(.42,.72,.98);
 showOnly('sTitle');
 requestAnimationFrame(loop);
 </script>
