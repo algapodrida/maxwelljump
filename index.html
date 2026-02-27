@@ -262,116 +262,75 @@ function mkCoin(){ const m=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.07
 // ═══════════════════════════════════════════
 // GLB LOADING
 // ═══════════════════════════════════════════
-const MODS={cat:null,e1:null,e2:null};
+const MODS = { cat:null, e1:null, e2:null };
 
-// ── GLTFLoader bootstrap ─────────────────────────────
-// We try two CDN sources. gltfLoaderReady resolves when
-// THREE.GLTFLoader is available (or when both fail).
-const gltfLoaderReady = new Promise(resolve => {
-  if (typeof THREE.GLTFLoader !== 'undefined') { resolve(true); return; }
+// Wraps any promise with a max wait time — always resolves
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(r => setTimeout(() => r(null), ms))
+  ]);
+}
 
-  function tryLoad(url, cb) {
+// Load GLTFLoader script — max 3 seconds, then give up
+function loadGLTFLoaderScript() {
+  return withTimeout(new Promise(resolve => {
+    if (window.THREE && THREE.GLTFLoader) { resolve(true); return; }
     const s = document.createElement('script');
-    s.src = url;
-    s.onload  = () => cb(true);
-    s.onerror = () => cb(false);
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.min.js';
+    s.onload  = () => resolve(true);
+    s.onerror = () => resolve(false);
     document.head.appendChild(s);
-  }
+  }), 3000);
+}
 
-  // Primary CDN (matches Three r128)
-  tryLoad(
-    'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.min.js',
-    ok => {
-      if (ok && typeof THREE.GLTFLoader !== 'undefined') { resolve(true); return; }
-      // Fallback CDN
-      tryLoad(
-        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js',
-        ok2 => resolve(ok2 && typeof THREE.GLTFLoader !== 'undefined')
-      );
-    }
-  );
-});
-
-// ── loadGLB ──────────────────────────────────────────
-// Returns a THREE.Group (ready to clone) or null.
-// Keeps a reference to the raw ArrayBuffer so we can
-// reload it each time instead of cloning broken graphs.
-const GLB_CACHE = {}; // url → ArrayBuffer
-
-async function loadGLB(url) {
-  const loaderOk = await gltfLoaderReady;
-  if (!loaderOk || typeof THREE.GLTFLoader === 'undefined') {
-    console.warn('GLTFLoader not available');
-    return null;
-  }
-
-  // Fetch raw bytes (works for same-origin / same-folder files)
-  let buffer = GLB_CACHE[url];
-  if (!buffer) {
+// Load a single GLB file — max 5 seconds per file
+function loadOneGLB(url) {
+  return withTimeout(new Promise(resolve => {
+    if (!window.THREE || !THREE.GLTFLoader) { resolve(null); return; }
     try {
-      const resp = await fetch(url);
-      if (!resp.ok) { console.warn('GLB fetch failed:', url, resp.status); return null; }
-      buffer = await resp.arrayBuffer();
-      GLB_CACHE[url] = buffer;
-    } catch(e) { console.warn('GLB fetch error:', url, e); return null; }
-  }
-
-  // Parse from buffer (each call creates a fresh scene graph)
-  return new Promise(resolve => {
-    const loader = new THREE.GLTFLoader();
-    loader.parse(
-      buffer.slice(0), // copy so loader can consume it
-      '',
-      gltf => {
-        const m = gltf.scene;
-        fitModel(m, 1.2);
-        resolve(m);
-      },
-      err => { console.warn('GLB parse error:', url, err); resolve(null); }
-    );
-  });
+      new THREE.GLTFLoader().load(
+        url,
+        gltf => {
+          try {
+            const m = gltf.scene;
+            const b = new THREE.Box3().setFromObject(m);
+            const s = b.getSize(new THREE.Vector3());
+            const sc = 1.2 / Math.max(s.x, s.y, s.z, 0.01);
+            m.scale.setScalar(sc);
+            m.updateMatrixWorld(true);
+            const b2 = new THREE.Box3().setFromObject(m);
+            m.position.x -= (b2.min.x + b2.max.x) / 2;
+            m.position.z -= (b2.min.z + b2.max.z) / 2;
+            m.position.y -= b2.min.y;
+            m.traverse(c => { if (c.isMesh) { c.castShadow = true; } });
+            resolve(m);
+          } catch(e) { resolve(null); }
+        },
+        null,
+        () => resolve(null)
+      );
+    } catch(e) { resolve(null); }
+  }), 5000);
 }
 
-function fitModel(m, targetSize) {
-  const box = new THREE.Box3().setFromObject(m);
-  const size = box.getSize(new THREE.Vector3());
-  const sc = targetSize / Math.max(size.x, size.y, size.z, 0.001);
-  m.scale.setScalar(sc);
-  // Re-center: feet at local origin
-  const box2 = new THREE.Box3().setFromObject(m);
-  m.position.x -= (box2.min.x + box2.max.x) / 2;
-  m.position.z -= (box2.min.z + box2.max.z) / 2;
-  m.position.y -= box2.min.y;
-  m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
-}
-
-// Instead of cloning (fragile), we re-parse from cached buffer each time
-async function makeMod(url) {
-  if (!GLB_CACHE[url]) return null;
-  return loadGLB(url); // re-parses from cached buffer
+function cloneMod(src) {
+  const c = src.clone(true);
+  c.traverse(n => { if (n.isMesh) n.castShadow = true; });
+  return c;
 }
 
 async function tryMods() {
-  // Pre-fetch all three files into GLB_CACHE
-  await Promise.all([
-    loadGLB('cat.glb'),
-    loadGLB('enemy1.glb'),
-    loadGLB('enemy2.glb'),
+  await loadGLTFLoaderScript();
+  if (!window.THREE || !THREE.GLTFLoader) return;
+  const [a, b, c] = await Promise.all([
+    loadOneGLB('cat.glb'),
+    loadOneGLB('enemy1.glb'),
+    loadOneGLB('enemy2.glb'),
   ]);
-  // Store the first-parsed instances
-  MODS.cat = GLB_CACHE['cat.glb']     ? await loadGLB('cat.glb')     : null;
-  MODS.e1  = GLB_CACHE['enemy1.glb']  ? await loadGLB('enemy1.glb')  : null;
-  MODS.e2  = GLB_CACHE['enemy2.glb']  ? await loadGLB('enemy2.glb')  : null;
-  console.log('Models ready — cat:', !!MODS.cat, 'e1:', !!MODS.e1, 'e2:', !!MODS.e2);
+  MODS.cat = a; MODS.e1 = b; MODS.e2 = c;
+  console.log('GLB loaded — cat:', !!a, 'e1:', !!b, 'e2:', !!c);
 }
-
-// For enemies/player: parse a fresh instance from cache each time
-async function freshMod(url) {
-  if (!GLB_CACHE[url]) return null;
-  return loadGLB(url);
-}
-
-// ─── cloneMod not needed — we use freshMod (re-parse) ───
 
 // ═══════════════════════════════════════════
 // GAME STATE
@@ -396,7 +355,7 @@ const GY=0; // ground surface Y
 // ═══════════════════════════════════════════
 // BUILD LEVEL
 // ═══════════════════════════════════════════
-async function buildLv(idx){
+function buildLv(idx){
   if(lvG){ scene.remove(lvG); lvG.traverse(n=>{if(n.geometry)n.geometry.dispose();}); }
   lvG=new THREE.Group(); scene.add(lvG);
 
@@ -444,9 +403,8 @@ async function buildLv(idx){
     const wx=OFF+tx, isF=type==='f';
     const wy=isF?GY+2.5:GY+.6;
     const g=new THREE.Group();
-    const url = isF ? 'enemy2.glb' : 'enemy1.glb';
-    const src = GLB_CACHE[url] ? await freshMod(url) : null;
-    const mesh = src ? src : mkSprite(isF?'🔥':'👾',1.0);
+    const src=isF?MODS.e2:MODS.e1;
+    const mesh=src?cloneMod(src):mkSprite(isF?'🔥':'👾',1.0);
     g.add(mesh); g.position.set(wx,wy,0); lvG.add(g);
     enemies.push({g,mesh,type,x:wx,y:wy,vy:0,
       vx:(Math.random()>.5?1:-1)*(isF?2.5:2.2),
@@ -463,8 +421,7 @@ async function buildLv(idx){
 
   // Player
   const pg=new THREE.Group();
-  const catSrc = GLB_CACHE['cat.glb'] ? await freshMod('cat.glb') : null;
-  const pmesh = catSrc ? catSrc : mkSprite('🐱',1.2);
+  const pmesh=MODS.cat?cloneMod(MODS.cat):mkSprite('🐱',1.2);
   pg.add(pmesh); lvG.add(pg);
   player={g:pg,mesh:pmesh,x:OFF+1,y:GY+1,vx:0,vy:0,w:.85,h:1.0,
     grounded:false,jumps:2,inv:0,alive:true,rot:0,facing:1};
@@ -614,7 +571,7 @@ function updateHeartsUI(){ for(let i=1;i<=3;i++) document.getElementById('h'+i).
 // ═══════════════════════════════════════════
 function showOnly(id){ document.querySelectorAll('.scr').forEach(s=>s.classList.add('off')); if(id) document.getElementById(id).classList.remove('off'); }
 
-async function showLvScreen(idx){
+function showLvScreen(idx){
   GS.running=false;
   const d=LEVELS[idx];
   document.getElementById('lsEmo').textContent=d.emo;
@@ -624,9 +581,8 @@ async function showLvScreen(idx){
   document.getElementById('lsDesc').textContent=nW+' caminantes · '+nF+' voladores · '+d.time+'s';
   document.getElementById('hTime').textContent=d.time;
   document.getElementById('hLvl').textContent=idx+1;
+  buildLv(idx); GS.time=d.time; GS.ta=0; updateHUD();
   showOnly('sLevel');
-  await buildLv(idx);
-  GS.time=d.time; GS.ta=0; updateHUD();
 }
 
 function showGameOver(){ GS.running=false; document.getElementById('goMsg').textContent='Puntuación: '+GS.score+' · Monedas: '+GS.coins; showOnly('sOver'); }
@@ -640,13 +596,24 @@ function resetAll(){ GS.level=0;GS.lives=3;GS.score=0;GS.coins=0; dying=false;co
 document.getElementById('btnPlay').addEventListener('click', async function() {
   const btn = this;
   btn.disabled = true;
-  btn.textContent = '⏳ CARGANDO...';
-  // Wait for GLTFLoader script + model loading (falls back gracefully if files missing)
-  await tryMods();
+  btn.textContent = '⏳ Cargando loader...';
+
+  await loadGLTFLoaderScript();
+  
+  if (window.THREE && THREE.GLTFLoader) {
+    btn.textContent = '⏳ Cargando modelos...';
+    await Promise.all([
+      loadOneGLB('cat.glb').then(m => { MODS.cat = m; }),
+      loadOneGLB('enemy1.glb').then(m => { MODS.e1 = m; }),
+      loadOneGLB('enemy2.glb').then(m => { MODS.e2 = m; }),
+    ]);
+    console.log('GLB loaded — cat:', !!MODS.cat, 'e1:', !!MODS.e1, 'e2:', !!MODS.e2);
+  }
+
+  btn.textContent = '▶ JUGAR';
+  btn.disabled = false;
   resetAll();
   showLvScreen(0);
-  btn.disabled = false;
-  btn.textContent = '▶ JUGAR';
 });
 
 document.getElementById('btnResume').addEventListener('click', function() {
