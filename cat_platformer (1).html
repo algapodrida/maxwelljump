@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐱 Neko Jump</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root { --ac:#ff6ef7; --gold:#ffe066; --grn:#4dff91; --red:#ff4d6d; --ui:#0a0019ee; }
+body { background:#1a0533; font-family:'Press Start 2P',monospace; overflow:hidden; width:100vw; height:100vh; }
+
+#hud {
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; justify-content:space-between; align-items:center;
+  padding:8px 20px; background:var(--ui); border-bottom:2px solid var(--ac);
+  font-size:10px; color:#fff; gap:12px;
+}
+.hb { display:flex; flex-direction:column; align-items:center; gap:3px; }
+.hl { color:var(--ac); font-size:7px; }
+.hv { color:var(--gold); font-size:13px; }
+.heart { font-size:15px; }
+.heart.dead { filter:grayscale(1) opacity(.3); }
+
+#cv { position:fixed; top:44px; left:0; width:100vw; height:calc(100vh - 44px); display:block; }
+#pc { position:fixed; inset:0; pointer-events:none; z-index:50; }
+
+.scr {
+  position:fixed; inset:0; z-index:200;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:rgba(10,0,25,.95); gap:22px;
+}
+.scr.off { display:none; }
+.scr h1 { font-size:clamp(20px,5vw,52px); color:var(--ac); text-shadow:0 0 30px var(--ac),4px 4px 0 #4d0066; text-align:center; line-height:1.4; }
+.scr p { font-family:'Nunito',sans-serif; font-size:16px; color:#bbb; text-align:center; max-width:480px; line-height:1.7; }
+.big { font-size:64px; animation:bob 1s ease-in-out infinite; }
+@keyframes bob { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-14px) rotate(8deg)} }
+
+.btn {
+  font-family:'Press Start 2P',monospace; font-size:15px; color:#000;
+  background:linear-gradient(135deg,var(--ac),#ff9ef7); border:none;
+  padding:16px 44px; border-radius:4px; cursor:pointer;
+  box-shadow:0 6px 0 #7a006e,0 8px 24px rgba(255,110,247,.5);
+  transition:transform .1s,box-shadow .1s; letter-spacing:1px;
+}
+.btn:hover { transform:translateY(-3px); box-shadow:0 9px 0 #7a006e,0 14px 30px rgba(255,110,247,.6); }
+.btn:active { transform:translateY(3px); box-shadow:0 3px 0 #7a006e; }
+.btn:disabled { opacity:.5; cursor:default; transform:none; }
+.btn2 {
+  font-family:'Press Start 2P',monospace; font-size:11px; color:var(--gold);
+  background:transparent; border:2px solid var(--gold); padding:11px 28px;
+  border-radius:4px; cursor:pointer; transition:background .2s;
+}
+.btn2:hover { background:rgba(255,224,102,.15); }
+
+.lvt { font-size:clamp(13px,3vw,26px); color:var(--gold); text-shadow:3px 3px 0 #a06000; }
+.cg { display:grid; grid-template-columns:1fr 1fr; gap:10px; font-family:'Nunito',sans-serif; font-size:14px; color:#888; }
+.cg span { color:var(--ac); font-family:'Press Start 2P',monospace; font-size:9px; }
+.minfo { font-family:'Nunito',sans-serif; font-size:13px; color:#666; text-align:center; max-width:420px; line-height:1.6; border:1px solid #2a2a2a; padding:10px 14px; border-radius:6px; }
+.minfo b { color:var(--ac); }
+
+#mob { position:fixed; bottom:18px; left:0; right:0; display:none; justify-content:space-between; padding:0 20px; z-index:100; pointer-events:none; }
+.mb { width:64px; height:64px; border-radius:50%; background:rgba(255,110,247,.25); border:2px solid var(--ac); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; pointer-events:all; user-select:none; -webkit-user-select:none; }
+.mb:active { background:rgba(255,110,247,.55); }
+.dp { display:flex; gap:8px; }
+@media (pointer:coarse){ #mob{display:flex;} }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="hb"><span class="hl">NIVEL</span><span class="hv" id="hLvl">1</span></div>
+  <div class="hb"><span class="hl">VIDAS</span><div style="display:flex;gap:4px"><span class="heart" id="h1">❤️</span><span class="heart" id="h2">❤️</span><span class="heart" id="h3">❤️</span></div></div>
+  <div class="hb"><span class="hl">PUNTOS</span><span class="hv" id="hScore">0</span></div>
+  <div class="hb"><span class="hl">MONEDAS</span><span class="hv" id="hCoins">🪙0</span></div>
+  <div class="hb"><span class="hl">TIEMPO</span><span class="hv" id="hTime">300</span></div>
+</div>
+
+<canvas id="cv"></canvas>
+<canvas id="pc"></canvas>
+
+<div id="mob">
+  <div class="dp"><div class="mb" id="mL">◀</div><div class="mb" id="mR">▶</div></div>
+  <div class="mb" id="mJ">🐾</div>
+</div>
+
+<!-- TITLE -->
+<div class="scr" id="sTitle">
+  <div class="big">🐱</div>
+  <h1>NEKO JUMP</h1>
+  <p>Un gato místico debe cruzar 10 mundos llenos de peligros. ¡Salta, gira y llega a la bandera!</p>
+  <div class="minfo">Pon <b>cat.glb</b>, <b>enemy1.glb</b> y <b>enemy2.glb</b> en la misma carpeta.<br>Si no existen, se usan sprites emoji automáticamente.</div>
+  <button class="btn" id="btnPlay">▶ JUGAR</button>
+  <div class="cg">
+    <div><span>← →</span> mover</div><div><span>ESPACIO/↑</span> saltar</div>
+    <div><span>2× SALTO</span> doble salto</div><div><span>↓</span> agacharse</div>
+  </div>
+</div>
+
+<!-- LEVEL START -->
+<div class="scr off" id="sLevel">
+  <div class="big" id="lsEmo">🐱</div>
+  <div class="lvt" id="lsTit">MUNDO 1</div>
+  <h1 id="lsName">Los Tejados</h1>
+  <p id="lsDesc">¡Llega a la bandera!</p>
+  <button class="btn" id="btnResume">▶ ¡VAMOS!</button>
+</div>
+
+<!-- GAME OVER -->
+<div class="scr off" id="sOver">
+  <div style="font-size:64px">😿</div>
+  <h1>GAME OVER</h1>
+  <p id="goMsg">0 puntos</p>
+  <button class="btn" id="btnRetry">↺ REINTENTAR</button>
+  <button class="btn2" id="btnMenu">⌂ MENÚ</button>
+</div>
+
+<!-- WIN -->
+<div class="scr off" id="sWin">
+  <div style="font-size:64px">🎉</div>
+  <h1>¡GANASTE!</h1>
+  <p id="winMsg">¡Increíble!</p>
+  <button class="btn" id="btnAgain">↺ OTRA VEZ</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+// ═══════════════════════════════════════════
+// LEVEL DATA
+// ═══════════════════════════════════════════
+// Helper to generate ground array with gaps
+function gnd(total, ...gaps) {
+  const out = [];
+  for (let x = 0; x < total; x++) {
+    let skip = false;
+    for (const [a,b] of gaps) { if (x>=a && x<b) { skip=true; break; } }
+    if (!skip) out.push(x);
+  }
+  return out;
+}
+
+const LEVELS = [
+  { name:"Los Tejados",     world:1,  emo:"🐱", bg:[.05,.02,.15], gc:0x5c3d1e, ac:0xff6ef7, time:300, width:42,
+    ground:gnd(41,       [8,10],[19,21],[31,33]),
+    floats:[[4,3,3],[11,3,2],[15,4,3],[22,3,3],[27,4,2],[35,3,3]],
+    coins: [[4,2],[7,2],[11,2],[15,3],[22,2],[27,3],[35,2]],
+    enemies:[[5,'w'],[9,'w'],[13,'w'],[17,'f'],[23,'w'],[28,'f'],[36,'w']], flagX:40 },
+
+  { name:"Las Cavernas",    world:2,  emo:"😼", bg:[.02,.05,.1],  gc:0x2a4a2a, ac:0x4dff91, time:280, width:45,
+    ground:gnd(44,       [4,6],[13,15],[23,25],[34,36]),
+    floats:[[4,3,2],[9,3,3],[13,3,2],[17,4,3],[23,3,2],[28,4,3],[34,3,2],[39,3,3]],
+    coins: [[4,2],[9,2],[13,2],[17,3],[23,2],[28,3],[34,2],[39,2]],
+    enemies:[[6,'w'],[10,'f'],[15,'w'],[19,'f'],[24,'w'],[29,'f'],[37,'w'],[41,'f']], flagX:43 },
+
+  { name:"El Desierto",     world:3,  emo:"😸", bg:[.15,.08,.02], gc:0xc8962d, ac:0xffe066, time:260, width:48,
+    ground:gnd(47,       [5,7],[14,16],[24,26],[35,37]),
+    floats:[[5,3,2],[9,4,3],[14,3,2],[18,4,2],[24,3,3],[29,4,2],[35,3,2],[40,4,3]],
+    coins: [[5,2],[9,3],[14,2],[18,3],[24,2],[29,3],[35,2],[40,3]],
+    enemies:[[3,'w'],[8,'f'],[12,'w'],[16,'f'],[22,'w'],[27,'f'],[33,'w'],[38,'f'],[42,'w']], flagX:46 },
+
+  { name:"El Volcán",       world:4,  emo:"🙀", bg:[.15,.02,.02], gc:0x8b1a0a, ac:0xff4d6d, time:240, width:50,
+    ground:gnd(49,       [3,5],[11,13],[21,23],[30,32],[40,42]),
+    floats:[[3,3,2],[7,3,3],[13,4,2],[17,3,3],[23,3,2],[27,4,3],[32,3,2],[36,4,2],[42,3,3]],
+    coins: [[3,2],[7,2],[13,3],[17,2],[23,2],[27,3],[32,2],[36,3],[42,2]],
+    enemies:[[4,'f'],[7,'w'],[12,'f'],[16,'w'],[20,'f'],[24,'w'],[29,'f'],[34,'w'],[38,'f'],[44,'w']], flagX:48 },
+
+  { name:"La Selva",        world:5,  emo:"😺", bg:[.02,.08,.02], gc:0x1a4d1a, ac:0x66ff66, time:280, width:52,
+    ground:gnd(51,       [6,8],[15,17],[24,26],[34,36],[43,45]),
+    floats:[[3,2,3],[6,3,2],[11,3,3],[15,2,2],[20,3,3],[24,2,2],[29,3,3],[34,2,2],[39,3,3],[43,2,2]],
+    coins: [[3,1],[6,2],[11,2],[15,1],[20,2],[24,1],[29,2],[34,1],[39,2],[43,1]],
+    enemies:[[2,'w'],[5,'f'],[9,'w'],[13,'f'],[18,'w'],[22,'f'],[27,'w'],[31,'f'],[37,'w'],[41,'f'],[46,'w']], flagX:50 },
+
+  { name:"El Hielo",        world:6,  emo:"😸", bg:[.05,.1,.18],  gc:0x5599cc, ac:0xaaeeff, time:250, width:55,
+    ground:gnd(54,       [4,6],[11,13],[19,21],[27,29],[35,37],[43,45]),
+    floats:[[4,3,2],[8,4,3],[13,3,2],[17,4,2],[21,3,3],[27,4,2],[31,3,3],[37,4,2],[41,3,3],[45,4,2]],
+    coins: [[4,2],[8,3],[13,2],[17,3],[21,2],[27,3],[31,2],[37,3],[41,2],[45,3]],
+    enemies:[[3,'w'],[7,'f'],[11,'w'],[15,'f'],[20,'w'],[24,'f'],[28,'w'],[32,'f'],[38,'w'],[42,'f'],[46,'w']], flagX:53 },
+
+  { name:"Las Nubes",       world:7,  emo:"😼", bg:[.08,.1,.2],   gc:0xddeeff, ac:0xffccff, time:260, width:55,
+    ground:[],
+    floats:[[1,4,3],[5,3,2],[9,4,3],[13,3,2],[17,4,3],[21,3,2],[25,4,3],[29,3,2],[33,4,3],[37,3,2],[41,4,3],[45,3,3],[49,4,2]],
+    coins: [[1,3],[5,2],[9,3],[13,2],[17,3],[21,2],[25,3],[29,2],[33,3],[37,2],[41,3],[45,2]],
+    enemies:[[3,'f'],[7,'f'],[11,'f'],[15,'f'],[19,'w'],[23,'f'],[27,'f'],[31,'w'],[35,'f'],[39,'f'],[43,'f'],[47,'f']], flagX:52 },
+
+  { name:"La Fábrica",      world:8,  emo:"🐾", bg:[.05,.05,.05], gc:0x444444, ac:0xff9900, time:240, width:56,
+    ground:gnd(55,       [4,6],[12,14],[21,23],[30,32],[39,41],[48,50]),
+    floats:[[4,3,3],[8,4,2],[13,3,3],[17,4,2],[22,3,3],[26,4,2],[31,3,3],[35,4,2],[40,3,3],[44,4,2]],
+    coins: [[4,2],[8,3],[13,2],[17,3],[22,2],[26,3],[31,2],[35,3],[40,2],[44,3]],
+    enemies:[[3,'w'],[6,'f'],[10,'w'],[14,'f'],[18,'w'],[22,'f'],[27,'w'],[31,'f'],[36,'w'],[40,'f'],[45,'w'],[49,'f']], flagX:54 },
+
+  { name:"La Ciudad",       world:9,  emo:"🐱", bg:[.03,.03,.1],  gc:0x334466, ac:0x66aaff, time:250, width:58,
+    ground:gnd(57,       [5,7],[13,15],[22,24],[31,33],[40,42],[50,52]),
+    floats:[[5,3,3],[9,4,2],[14,3,3],[18,4,2],[23,3,3],[27,4,2],[32,3,3],[36,4,2],[41,3,3],[45,4,2],[51,3,2]],
+    coins: [[5,2],[9,3],[14,2],[18,3],[23,2],[27,3],[32,2],[36,3],[41,2],[45,3],[51,2]],
+    enemies:[[3,'w'],[7,'f'],[11,'w'],[15,'f'],[20,'w'],[24,'f'],[29,'w'],[33,'f'],[38,'w'],[42,'f'],[47,'w'],[52,'f']], flagX:56 },
+
+  { name:"El Castillo Final",world:10, emo:"😺", bg:[.1,.0,.05],  gc:0x1a001a, ac:0xff00aa, time:220, width:61,
+    ground:gnd(60,       [3,5],[9,11],[16,18],[23,25],[31,33],[38,40],[45,47],[53,55]),
+    floats:[[3,3,2],[6,4,3],[9,3,2],[12,4,3],[16,3,2],[19,4,3],[23,3,2],[26,4,3],[31,3,2],[34,4,3],[38,3,2],[41,4,3],[45,3,2],[48,4,3],[53,3,2]],
+    coins: [[3,2],[6,3],[9,2],[12,3],[16,2],[19,3],[23,2],[26,3],[31,2],[34,3],[38,2],[41,3],[45,2],[48,3],[53,2]],
+    enemies:[[2,'w'],[4,'f'],[7,'w'],[10,'f'],[13,'w'],[17,'f'],[20,'w'],[24,'f'],[27,'w'],[32,'f'],[35,'w'],[39,'f'],[42,'w'],[46,'f'],[49,'w'],[54,'f']], flagX:58 },
+];
+
+// ═══════════════════════════════════════════
+// THREE.JS
+// ═══════════════════════════════════════════
+const cv  = document.getElementById('cv');
+const ren = new THREE.WebGLRenderer({ canvas:cv, antialias:true });
+ren.shadowMap.enabled = true;
+ren.shadowMap.type = THREE.PCFSoftShadowMap;
+ren.setPixelRatio(Math.min(devicePixelRatio,2));
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x1a0533, 20, 80);
+
+const cam = new THREE.OrthographicCamera(-1,1,1,-1,.1,200);
+cam.position.set(0,3,20); cam.lookAt(0,3,0);
+
+function resize() {
+  const w=innerWidth, h=innerHeight-44;
+  ren.setSize(w,h);
+  const asp=w/h, vH=11;
+  cam.left=-vH*asp/2; cam.right=vH*asp/2; cam.top=vH/2; cam.bottom=-vH/2;
+  cam.updateProjectionMatrix();
+}
+resize(); window.addEventListener('resize',resize);
+
+scene.add(new THREE.AmbientLight(0xffffff,.7));
+const sun = new THREE.DirectionalLight(0xfff0e0,1.0);
+sun.position.set(5,10,8); sun.castShadow=true; sun.shadow.mapSize.set(1024,1024); scene.add(sun);
+const fill = new THREE.DirectionalLight(0x8888ff,.35); fill.position.set(-5,3,5); scene.add(fill);
+
+// ═══════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════
+const pc=document.getElementById('pc'), pcx=pc.getContext('2d');
+let PARTS=[];
+function rzPc(){ pc.width=innerWidth; pc.height=innerHeight; }
+rzPc(); window.addEventListener('resize',rzPc);
+
+function spawnParts(wx,wy,col,n=10){
+  const vW=cam.right-cam.left, vH2=cam.top-cam.bottom;
+  const sx=((wx-cam.position.x)/vW+.5)*pc.width;
+  const sy=(.5-(wy-cam.position.y)/vH2)*(pc.height-44)+44;
+  for(let i=0;i<n;i++) PARTS.push({x:sx,y:sy,vx:(Math.random()-.5)*8,vy:-Math.random()*9-2,life:1,col,s:Math.random()*7+3});
+}
+function tickParts(dt){
+  pcx.clearRect(0,0,pc.width,pc.height);
+  PARTS=PARTS.filter(p=>p.life>0);
+  for(const p of PARTS){ p.x+=p.vx;p.y+=p.vy;p.vy+=.35;p.life-=dt*2.2; pcx.globalAlpha=Math.max(0,p.life);pcx.fillStyle=p.col;pcx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s); }
+  pcx.globalAlpha=1;
+}
+
+// ═══════════════════════════════════════════
+// MESH HELPERS
+// ═══════════════════════════════════════════
+function box(w,h,d,col){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col})); m.castShadow=m.receiveShadow=true; return m; }
+function mkSprite(txt,sz=1){ const c=document.createElement('canvas'); c.width=c.height=128; const cx=c.getContext('2d'); cx.font='90px serif'; cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText(txt,64,68); const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false})); sp.scale.set(sz,sz,1); return sp; }
+function mkCoin(){ const m=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.07,16),new THREE.MeshLambertMaterial({color:0xffe066})); m.rotation.x=Math.PI/2; return m; }
+
+// ═══════════════════════════════════════════
+// GLB LOADING
+// ═══════════════════════════════════════════
+const MODS={cat:null,e1:null,e2:null};
+let gltfReady=false;
+const gltfScript=document.createElement('script');
+gltfScript.src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+gltfScript.onload=()=>{ gltfReady=true; };
+document.head.appendChild(gltfScript);
+
+function loadGLB(url){ return new Promise(res=>{ if(!gltfReady||!THREE.GLTFLoader){res(null);return;} try{ new THREE.GLTFLoader().load(url,g=>{ const m=g.scene; const b=new THREE.Box3().setFromObject(m); const sz=b.getSize(new THREE.Vector3()); const sc=1.2/Math.max(sz.x,sz.y,sz.z); m.scale.setScalar(sc); b.getCenter(new THREE.Vector3()).multiplyScalar(sc); m.traverse(c=>{if(c.isMesh)c.castShadow=true;}); res(m); },null,()=>res(null)); }catch(e){res(null);} }); }
+
+async function tryMods(){
+  const [a,b,c]=await Promise.all([loadGLB('cat.glb'),loadGLB('enemy1.glb'),loadGLB('enemy2.glb')]);
+  MODS.cat=a; MODS.e1=b; MODS.e2=c;
+}
+
+function cloneMod(src){ const c=src.clone(); c.traverse(n=>{if(n.isMesh)n.castShadow=true;}); return c; }
+
+// ═══════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════
+const K={};
+document.addEventListener('keydown',e=>{K[e.code]=true;});
+document.addEventListener('keyup',  e=>{K[e.code]=false;});
+
+// Mobile
+['mL','mR','mJ'].forEach(id=>{
+  const k={'mL':'ArrowLeft','mR':'ArrowRight','mJ':'Space'}[id];
+  document.getElementById(id).addEventListener('touchstart',()=>K[k]=true,{passive:true});
+  document.getElementById(id).addEventListener('touchend',  ()=>K[k]=false,{passive:true});
+});
+
+const GS={level:0,lives:3,score:0,coins:0,running:false,time:300,ta:0};
+let lvG=null, player=null, enemies=[], coins3d=[], plats=[], floats3d=[], flag=null;
+let dying=false, completing=false, prevT=null, jumpWas=false;
+
+const GY=0; // ground surface Y
+
+// ═══════════════════════════════════════════
+// BUILD LEVEL
+// ═══════════════════════════════════════════
+function buildLv(idx){
+  if(lvG){ scene.remove(lvG); lvG.traverse(n=>{if(n.geometry)n.geometry.dispose();}); }
+  lvG=new THREE.Group(); scene.add(lvG);
+
+  const d=LEVELS[idx];
+  scene.background=new THREE.Color(...d.bg);
+  scene.fog.color.setRGB(...d.bg);
+
+  plats=[]; floats3d=[]; enemies=[]; coins3d=[];
+
+  // Stars bg
+  for(let i=0;i<80;i++){
+    const s=mkSprite('·',.2+Math.random()*.15);
+    s.material.color.setHex(d.ac);
+    s.position.set((Math.random()-.5)*80,Math.random()*10-3,-8);
+    lvG.add(s);
+  }
+
+  const OFF=-d.width/2;
+
+  // Ground
+  for(const tx of d.ground){
+    const wx=OFF+tx, wy=GY-.25;
+    const t=box(1,.5,1,d.gc); t.position.set(wx,wy,0); lvG.add(t);
+    const tp=box(1,.12,1.05,d.ac); tp.position.set(wx,GY-.06,.02); lvG.add(tp);
+    plats.push({x:wx,y:GY,w:1,h:.5});
+  }
+
+  // Floats
+  for(const [tx,ty,tw] of d.floats){
+    const wx=OFF+tx+(tw-1)*.5, wy=GY+ty;
+    const pm=box(tw,.3,.9,d.ac); pm.position.set(wx,wy-.15,0); lvG.add(pm);
+    floats3d.push({x:wx,y:wy,w:tw,h:.3,mesh:pm,base:wy,t:Math.random()*Math.PI*2});
+  }
+
+  // Coins
+  for(const [tx,ty] of d.coins){
+    const wx=OFF+tx, wy=GY+ty;
+    const cm=mkCoin(); cm.position.set(wx,wy,0); lvG.add(cm);
+    coins3d.push({x:wx,y:wy,mesh:cm,got:false});
+  }
+
+  // Enemies
+  for(const [tx,type] of d.enemies){
+    const wx=OFF+tx, isF=type==='f';
+    const wy=isF?GY+2.5:GY+.6;
+    const g=new THREE.Group();
+    const src=isF?MODS.e2:MODS.e1;
+    const mesh=src?cloneMod(src):mkSprite(isF?'🔥':'👾',1.0);
+    g.add(mesh); g.position.set(wx,wy,0); lvG.add(g);
+    enemies.push({g,mesh,type,x:wx,y:wy,vy:0,
+      vx:(Math.random()>.5?1:-1)*(isF?2.5:2.2),
+      w:.8,h:.9,dead:false,dTimer:0,
+      base:wy,ft:Math.random()*Math.PI*2,
+      pMin:wx-2.5,pMax:wx+2.5});
+  }
+
+  // Flag
+  flag=new THREE.Group();
+  const pole=box(.08,5,.08,0xffffff); pole.position.set(0,2.5,0); flag.add(pole);
+  const fs=mkSprite('🏁',1.3); fs.position.set(.65,5.3,0); flag.add(fs);
+  flag.position.set(OFF+d.flagX,GY,0); lvG.add(flag);
+
+  // Player
+  const pg=new THREE.Group();
+  const pmesh=MODS.cat?cloneMod(MODS.cat):mkSprite('🐱',1.2);
+  pg.add(pmesh); lvG.add(pg);
+  player={g:pg,mesh:pmesh,x:OFF+1,y:GY+1,vx:0,vy:0,w:.85,h:1.0,
+    grounded:false,jumps:2,inv:0,alive:true,rot:0,facing:1};
+}
+
+// ═══════════════════════════════════════════
+// PHYSICS
+// ═══════════════════════════════════════════
+function ovlp(ax,ay,aw,ah,bx,by,bw,bh){ return Math.abs(ax-bx)<(aw+bw)/2&&Math.abs(ay-by)<(ah+bh)/2; }
+function resolve(obj,p){
+  const dx=obj.x-p.x,dy=obj.y-p.y;
+  const ox=(obj.w+p.w)/2-Math.abs(dx), oy=(obj.h+p.h)/2-Math.abs(dy);
+  if(ox<=0||oy<=0) return;
+  if(oy<ox){ if(dy>0){obj.y+=oy;if(obj.vy<0){obj.vy=0;obj.grounded=true;obj.jumps=2;}}else{obj.y-=oy;if(obj.vy>0)obj.vy=0;} }
+  else{ obj.x+=dx>0?ox:-ox; obj.vx=0; }
+}
+
+// ═══════════════════════════════════════════
+// UPDATE
+// ═══════════════════════════════════════════
+const GRAV=-26, PSPD=6.5, JF=10;
+
+function update(dt){
+  if(!GS.running) return;
+
+  GS.ta+=dt;
+  if(GS.ta>=1){ GS.ta-=1; GS.time=Math.max(0,GS.time-1); document.getElementById('hTime').textContent=GS.time; if(GS.time===0&&!dying)killPlayer(); }
+
+  const d=LEVELS[GS.level];
+  const AP=[...plats,...floats3d];
+
+  // Input
+  const lH=K.ArrowLeft||K.KeyA, rH=K.ArrowRight||K.KeyD;
+  const jH=K.Space||K.ArrowUp||K.KeyW;
+
+  if(lH){player.vx=-PSPD;player.facing=-1;}
+  else if(rH){player.vx=PSPD;player.facing=1;}
+  else player.vx*=.72;
+
+  if(jH&&!jumpWas&&player.jumps>0&&player.alive){ player.vy=JF;player.jumps--;player.grounded=false; }
+  jumpWas=jH;
+
+  player.vy+=GRAV*dt; player.x+=player.vx*dt; player.y+=player.vy*dt;
+  player.grounded=false;
+  for(const p of AP) resolve(player,p);
+
+  const lb=-d.width/2+.3;
+  if(player.x<lb){player.x=lb;player.vx=0;}
+  if(player.y<-4&&!dying) killPlayer();
+
+  // Spin cat
+  if(!MODS.cat){ player.rot+=dt*(Math.abs(player.vx)>.5?5.5:1.5)*player.facing; player.mesh.material.rotation=player.rot; }
+  else{ player.mesh.rotation.y+=dt*(Math.abs(player.vx)>.5?4:1)*player.facing; player.mesh.scale.x=player.facing; }
+
+  const sq=player.grounded?1.1:(player.vy>0?1.2:.9);
+  player.g.scale.set(1,sq,1); player.g.position.set(player.x,player.y,0);
+
+  if(player.inv>0){ player.inv-=dt; player.g.visible=Math.floor(player.inv*10)%2===0; }
+  else player.g.visible=true;
+
+  // Floats
+  for(const fp of floats3d){ fp.t+=dt; fp.y=fp.base+Math.sin(fp.t*1.6)*.45; fp.mesh.position.y=fp.y-fp.h/2; }
+
+  // Enemies
+  for(const e of enemies){
+    if(e.dead){ e.dTimer-=dt; if(e.dTimer<=0)e.g.visible=false; continue; }
+    const isF=e.type==='f';
+    if(isF){ e.ft+=dt; e.y=e.base+Math.sin(e.ft*2)*.45; e.x+=e.vx*dt; if(e.x<e.pMin||e.x>e.pMax)e.vx*=-1; }
+    else{
+      e.vy+=GRAV*dt; e.x+=e.vx*dt; e.y+=e.vy*dt; e.grounded=false;
+      for(const p of AP) resolve(e,p);
+      if(e.x<e.pMin||e.x>e.pMax)e.vx*=-1;
+      if(e.y<-4){e.dead=true;e.g.visible=false;continue;}
+    }
+    if(MODS[isF?'e2':'e1']) e.mesh.rotation.y+=dt*2.5;
+    e.g.position.set(e.x,e.y,0);
+
+    if(!dying&&player.inv<=0&&player.alive&&ovlp(player.x,player.y,player.w,player.h,e.x,e.y,e.w,e.h)){
+      const stomp=player.vy<-1.5&&player.y>e.y+.15;
+      if(stomp){
+        e.dead=true;e.dTimer=.5;e.g.scale.set(1.4,.15,1);setTimeout(()=>e.g.visible=false,450);
+        player.vy=JF*.55; GS.score+=100; spawnParts(e.x,e.y,'#ff6ef7',14); updateHUD();
+      } else {
+        GS.lives--; player.inv=2.8; player.vy=JF*.5; player.vx=(player.x>e.x?1:-1)*PSPD*1.2;
+        spawnParts(player.x,player.y,'#ff4d6d',12); updateHeartsUI();
+        if(GS.lives<=0&&!dying) setTimeout(killPlayer,100);
+      }
+    }
+  }
+
+  // Coins
+  for(const c of coins3d){
+    if(c.got) continue;
+    c.mesh.rotation.z+=dt*3.5; c.mesh.position.y=c.y+Math.sin(Date.now()*.003)*.18;
+    if(ovlp(player.x,player.y,player.w,player.h,c.x,c.y,.5,.5)){
+      c.got=true;c.mesh.visible=false;GS.coins++;GS.score+=50;spawnParts(c.x,c.y,'#ffe066',8);updateHUD();
+    }
+  }
+
+  // Flag
+  if(!completing&&flag){
+    flag.rotation.y+=dt*.5;
+    const fx=-d.width/2+d.flagX;
+    if(ovlp(player.x,player.y,player.w,player.h,fx,GY+2.5,1.5,5)) lvComplete();
+  }
+
+  // Camera
+  const half=(cam.right-cam.left)/2;
+  const minC=-d.width/2+half, maxC=d.width/2-half+1;
+  const tX=Math.max(minC,Math.min(maxC,player.x));
+  cam.position.x+=(tX-cam.position.x)*9*dt;
+  cam.position.y=3.5;
+  sun.position.x=cam.position.x+5;
+}
+
+// ═══════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════
+function lvComplete(){
+  if(completing) return; completing=true;
+  GS.score+=GS.time*10+500;
+  spawnParts(player.x,player.y,'#ffe066',30); spawnParts(player.x,player.y+1,'#ff6ef7',20);
+  setTimeout(()=>{ completing=false; GS.level++; if(GS.level>=LEVELS.length)showWin(); else showLvScreen(GS.level); },1100);
+}
+
+function killPlayer(){
+  if(dying) return; dying=true; player.alive=false; player.vy=JF;
+  spawnParts(player.x,player.y,'#ff4d6d',20);
+  setTimeout(()=>{
+    dying=false;
+    if(GS.lives<=0){ showGameOver(); return; }
+    const d=LEVELS[GS.level];
+    player.x=-d.width/2+1; player.y=GY+1; player.vx=0; player.vy=0;
+    player.alive=true; player.inv=2.5;
+    GS.time=d.time; GS.ta=0; document.getElementById('hTime').textContent=GS.time;
+  },900);
+}
+
+// ═══════════════════════════════════════════
+// HUD
+// ═══════════════════════════════════════════
+function updateHUD(){ document.getElementById('hScore').textContent=GS.score; document.getElementById('hCoins').textContent='🪙'+GS.coins; document.getElementById('hLvl').textContent=GS.level+1; }
+function updateHeartsUI(){ for(let i=1;i<=3;i++) document.getElementById('h'+i).className='heart'+(i<=GS.lives?'':' dead'); }
+
+// ═══════════════════════════════════════════
+// SCREENS
+// ═══════════════════════════════════════════
+function showOnly(id){ document.querySelectorAll('.scr').forEach(s=>s.classList.add('off')); if(id) document.getElementById(id).classList.remove('off'); }
+
+function showLvScreen(idx){
+  GS.running=false;
+  const d=LEVELS[idx];
+  document.getElementById('lsEmo').textContent=d.emo;
+  document.getElementById('lsTit').textContent='MUNDO '+d.world;
+  document.getElementById('lsName').textContent=d.name;
+  const nW=d.enemies.filter(e=>e[1]==='w').length, nF=d.enemies.filter(e=>e[1]==='f').length;
+  document.getElementById('lsDesc').textContent=nW+' caminantes · '+nF+' voladores · '+d.time+'s';
+  document.getElementById('hTime').textContent=d.time;
+  document.getElementById('hLvl').textContent=idx+1;
+  buildLv(idx); GS.time=d.time; GS.ta=0; updateHUD();
+  showOnly('sLevel');
+}
+
+function showGameOver(){ GS.running=false; document.getElementById('goMsg').textContent='Puntuación: '+GS.score+' · Monedas: '+GS.coins; showOnly('sOver'); }
+function showWin(){ GS.running=false; document.getElementById('winMsg').textContent='¡10 mundos completados! Puntuación: '+GS.score+' · Monedas: '+GS.coins; showOnly('sWin'); }
+
+function resetAll(){ GS.level=0;GS.lives=3;GS.score=0;GS.coins=0; dying=false;completing=false; updateHUD();updateHeartsUI(); }
+
+// ═══════════════════════════════════════════
+// BUTTON WIRING
+// ═══════════════════════════════════════════
+document.getElementById('btnPlay').addEventListener('click', function() {
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = '⏳ CARGANDO...';
+  // Give GLTFLoader script time to load, then try models
+  setTimeout(function() {
+    tryMods().then(function() {
+      resetAll();
+      showLvScreen(0);
+      btn.disabled = false;
+      btn.textContent = '▶ JUGAR';
+    });
+  }, 800);
+});
+
+document.getElementById('btnResume').addEventListener('click', function() {
+  showOnly(null); GS.running = true;
+});
+
+document.getElementById('btnRetry').addEventListener('click', function() {
+  resetAll(); showLvScreen(0);
+});
+
+document.getElementById('btnMenu').addEventListener('click', function() {
+  GS.running = false; showOnly('sTitle');
+});
+
+document.getElementById('btnAgain').addEventListener('click', function() {
+  resetAll(); showLvScreen(0);
+});
+
+// ═══════════════════════════════════════════
+// LOOP
+// ═══════════════════════════════════════════
+function loop(ts){
+  requestAnimationFrame(loop);
+  const now=ts/1000, dt=prevT!==null?Math.min(now-prevT,.05):.016;
+  prevT=now;
+  update(dt); tickParts(dt); ren.render(scene,cam);
+}
+
+scene.background=new THREE.Color(.05,.02,.15);
+showOnly('sTitle');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
